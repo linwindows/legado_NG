@@ -267,6 +267,9 @@ fun VideoPlayerScreen(
             initialCode = SubtitleSearchHelp.extractCode(title.orEmpty()),
             onMount = { cues, name -> VideoPlaybackBridge.mountSubtitle(cues, name) },
             onUnmount = { VideoPlaybackBridge.unmountSubtitle() },
+            offsetMs = state.subtitleOffsetMs,
+            onAdjustOffset = { VideoPlaybackBridge.adjustSubtitleOffset(it) },
+            onResetOffset = { VideoPlaybackBridge.resetSubtitleOffset() },
             onDone = { msg -> panel = ""; hint = msg },
             onDismiss = { panel = "" },
         )

@@ -36,6 +36,7 @@ data class VideoPlaybackState(
     val networkConfirmation: Boolean = false,
     val subtitleText: String? = null,
     val subtitleRevision: Int = 0,
+    val subtitleOffsetMs: Long = 0,
 ) {
     val aspect: Float get() = if (width > 0 && height > 0) {
         if (rotation % 180 == 0) width.toFloat() / height else height.toFloat() / width
@@ -75,6 +76,7 @@ object VideoPlaybackBridge : VideoPlaybackTarget, GSYMediaPlayerListener {
     private var ticker: Job? = null
     private var subtitleTicker: Job? = null
     private var subtitleCues: List<SubtitleCue> = emptyList()
+    private var subtitleOffsetMs = 0L
     private var hasPlaybackPosition = false
     private var playWhenReady = true
     private var selectedSpeed = 1f
@@ -215,10 +217,11 @@ object VideoPlaybackBridge : VideoPlaybackTarget, GSYMediaPlayerListener {
         VideoPlay.subtitleUrl = name
         VideoPlay.subtitleLang = "zh"
         subtitleTicker?.cancel()
-        mutableState.update { it.copy(subtitleRevision = it.subtitleRevision + 1, subtitleText = null) }
+        mutableState.update { it.copy(subtitleRevision = it.subtitleRevision + 1, subtitleText = null,
+            subtitleOffsetMs = subtitleOffsetMs) }
         subtitleTicker = scope.launch {
             while (isActive) {
-                val position = state.value.position
+                val position = state.value.position - subtitleOffsetMs
                 val index = subtitleCues.binarySearchBy(position) { it.startMs }
                 val cueIndex = if (index >= 0) index else (-index - 2)
                 val text = subtitleCues.getOrNull(cueIndex)
@@ -234,10 +237,24 @@ object VideoPlaybackBridge : VideoPlaybackTarget, GSYMediaPlayerListener {
         subtitleTicker?.cancel()
         subtitleTicker = null
         subtitleCues = emptyList()
+        subtitleOffsetMs = 0L
         VideoPlay.subtitleUrl = null
         VideoPlay.subtitleLang = null
-        mutableState.update { it.copy(subtitleRevision = it.subtitleRevision + 1, subtitleText = null) }
+        mutableState.update { it.copy(subtitleRevision = it.subtitleRevision + 1, subtitleText = null,
+            subtitleOffsetMs = 0L) }
         return null
+    }
+
+    fun adjustSubtitleOffset(deltaMs: Long) {
+        if (subtitleCues.isEmpty()) return
+        subtitleOffsetMs = (subtitleOffsetMs + deltaMs).coerceIn(-60_000L, 60_000L)
+        mutableState.update { it.copy(subtitleOffsetMs = subtitleOffsetMs) }
+    }
+
+    fun resetSubtitleOffset() {
+        if (subtitleCues.isEmpty()) return
+        subtitleOffsetMs = 0L
+        mutableState.update { it.copy(subtitleOffsetMs = 0L) }
     }
 
     fun speed(value: Float, temporary: Boolean = false) {

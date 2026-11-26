@@ -45,6 +45,9 @@ internal fun VideoSubtitleSheet(
     initialCode: String?,
     onMount: (List<SubtitleCue>, String) -> Unit,
     onUnmount: () -> Unit,
+    offsetMs: Long,
+    onAdjustOffset: (Long) -> Unit,
+    onResetOffset: () -> Unit,
     onDone: (String?) -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -124,6 +127,31 @@ internal fun VideoSubtitleSheet(
                 Text("当前字幕：" + mountedUrl!!.substringAfterLast('/'),
                     Modifier.padding(top = 6.dp), color = colors.muted, fontSize = 12.sp,
                     maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Row(
+                    Modifier.fillMaxWidth().padding(top = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                ) {
+                    Text("字幕延时", color = colors.content, fontSize = 13.sp)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        TextButton(onClick = { onAdjustOffset(-500) }) {
+                            Text("−0.5s", color = colors.accent, fontSize = 13.sp)
+                        }
+                        Text(
+                            String.format(java.util.Locale.ROOT, "%+.1fs", offsetMs / 1000.0),
+                            Modifier.widthIn(min = 48.dp),
+                            color = colors.content,
+                            fontSize = 13.sp,
+                        )
+                        TextButton(onClick = { onAdjustOffset(500) }) {
+                            Text("+0.5s", color = colors.accent, fontSize = 13.sp)
+                        }
+                        TextButton(onClick = onResetOffset) {
+                            Text("重置", color = colors.muted, fontSize = 12.sp)
+                        }
+                    }
+                }
+                Text("正数延后，负数提前 · −60 至 60 秒", color = colors.muted, fontSize = 11.sp)
             }
             error?.let {
                 Text(it, Modifier.padding(top = 10.dp), color = colors.accent, fontSize = 13.sp, lineHeight = 18.sp)
