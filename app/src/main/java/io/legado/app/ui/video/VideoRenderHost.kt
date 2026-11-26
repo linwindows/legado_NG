@@ -6,6 +6,15 @@ import android.view.Surface
 import android.view.TextureView
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Text
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.viewinterop.AndroidView
@@ -61,6 +70,21 @@ fun VideoRenderHost(owner: Any, state: VideoPlaybackState, danmakuVisible: Boole
         })
         if (allowDanmaku && (VideoPlay.danmakuFile != null || !VideoPlay.danmakuStr.isNullOrBlank())) {
             key(state.mediaRevision) { VideoDanmaku(state, danmakuVisible) }
+        }
+        state.subtitleText?.takeIf { it.isNotBlank() }?.let { text ->
+            Text(
+                text = text,
+                modifier = Modifier.align(Alignment.BottomCenter)
+                    .padding(horizontal = 12.dp, vertical = 12.dp)
+                    .background(Color.Black.copy(alpha = .48f), RoundedCornerShape(3.dp))
+                    .padding(horizontal = 6.dp, vertical = 2.dp),
+                color = Color.White,
+                fontSize = 16.sp,
+                lineHeight = 20.sp,
+                textAlign = TextAlign.Center,
+                maxLines = 2,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+            )
         }
     }
 }

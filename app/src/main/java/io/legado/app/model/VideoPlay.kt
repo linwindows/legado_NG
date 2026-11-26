@@ -123,6 +123,32 @@ object VideoPlay : CoroutineScope by MainScope(){
     var danmakuFile: File? = null
     var danmakuStr: String? = null
     var danmakuShow = true
+    /**  外挂字幕直链（由正文 header 中的 Subtitle-Url 提供） **/
+    var subtitleUrl: String? = null
+    /**  字幕语言标签 **/
+    var subtitleLang: String? = null
+
+    /**
+     * 从 analyzeUrl 的 headerMap 中提取字幕配置。
+     * 订阅源正文可返回: 视频URL,{"header":{"Subtitle-Url":"https://....srt","Subtitle-Lang":"zh"}}
+     */
+    fun applySubtitleHeaders(headers: Map<String, String>?) {
+        if (headers == null) {
+            subtitleUrl = null
+            subtitleLang = null
+            return
+        }
+        var found: String? = null
+        var lang: String? = null
+        for ((key, value) in headers) {
+            when (key.lowercase()) {
+                "subtitle-url", "x-subtitle-url" -> found = value
+                "subtitle-lang", "x-subtitle-lang" -> lang = value
+            }
+        }
+        subtitleUrl = found?.takeIf { it.startsWith("http") || it.startsWith("file:") }
+        subtitleLang = lang
+    }
 
     /**
      * 开始播放
@@ -147,6 +173,8 @@ object VideoPlay : CoroutineScope by MainScope(){
         if (source == null) return
         danmakuStr = null
         danmakuFile = null
+        subtitleUrl = null
+        subtitleLang = null
         stopLoading()
         player.seekOnStart = 0
         player.loading()
@@ -165,6 +193,7 @@ object VideoPlay : CoroutineScope by MainScope(){
                 )
                 withContext(Main) {
                     player.mapHeadData = analyzeUrl.headerMap
+                    applySubtitleHeaders(analyzeUrl.headerMap)
                     val url = analyzeUrl.url
                     player.setUp(url, false, File(appCtx.externalCache, "exoplayer"), videoTitle)
                     if (autoPlay) {
@@ -195,14 +224,15 @@ object VideoPlay : CoroutineScope by MainScope(){
                         source = source,
                         ruleData = rssArticle
                     )
-                    withContext(Main) {
-                        player.mapHeadData = analyzeUrl.headerMap
-                        player.setUp(
-                            analyzeUrl.url,
-                            false,
-                            File(appCtx.externalCache, "exoplayer"),
-                            rssArticle.title
-                        )
+                        withContext(Main) {
+                            player.mapHeadData = analyzeUrl.headerMap
+                            applySubtitleHeaders(analyzeUrl.headerMap)
+                            player.setUp(
+                                analyzeUrl.url,
+                                false,
+                                File(appCtx.externalCache, "exoplayer"),
+                                rssArticle.title
+                            )
                         if (autoPlay) {
                             player.startPlayLogic()
                         }
@@ -234,6 +264,7 @@ object VideoPlay : CoroutineScope by MainScope(){
                         val playUrl = analyzeUrl.url
                         withContext(Main) {
                             player.mapHeadData = analyzeUrl.headerMap
+                            applySubtitleHeaders(analyzeUrl.headerMap)
                             player.setUp(playUrl, false, File(appCtx.externalCache, "exoplayer"), rssArticle.title)
                             if (autoPlay) {
                                 player.startPlayLogic()
@@ -300,6 +331,7 @@ object VideoPlay : CoroutineScope by MainScope(){
                 val playUrl = analyzeUrl.url
                 withContext(Main) {
                     player.mapHeadData = analyzeUrl.headerMap
+                    applySubtitleHeaders(analyzeUrl.headerMap)
                     player.setUp(playUrl, false, File(appCtx.externalCache, "exoplayer"), chapter.title)
                     if (autoPlay) {
                         player.startPlayLogic()
@@ -359,6 +391,8 @@ object VideoPlay : CoroutineScope by MainScope(){
             rssRecord = null
             danmakuStr = null
             danmakuFile = null
+            subtitleUrl = null
+            subtitleLang = null
             lockCurScreen = false
             isPortraitVideo = false
             release()

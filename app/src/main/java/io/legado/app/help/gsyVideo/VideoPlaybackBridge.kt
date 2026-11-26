@@ -6,6 +6,7 @@ import android.view.Surface
 import com.shuyu.gsyvideoplayer.listener.GSYMediaPlayerListener
 import com.shuyu.gsyvideoplayer.utils.NetInfoModule
 import io.legado.app.model.VideoPlay
+import io.legado.app.help.subtitle.SubtitleCue
 import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -33,6 +34,8 @@ data class VideoPlaybackState(
     val mediaRevision: Int = 0,
     val seekRevision: Int = 0,
     val networkConfirmation: Boolean = false,
+    val subtitleText: String? = null,
+    val subtitleRevision: Int = 0,
 ) {
     val aspect: Float get() = if (width > 0 && height > 0) {
         if (rotation % 180 == 0) width.toFloat() / height else height.toFloat() / width
@@ -70,6 +73,8 @@ object VideoPlaybackBridge : VideoPlaybackTarget, GSYMediaPlayerListener {
     private var cache = false
     private val lease = VideoOutputLease<Surface>()
     private var ticker: Job? = null
+    private var subtitleTicker: Job? = null
+    private var subtitleCues: List<SubtitleCue> = emptyList()
     private var hasPlaybackPosition = false
     private var playWhenReady = true
     private var selectedSpeed = 1f
@@ -201,6 +206,40 @@ object VideoPlaybackBridge : VideoPlaybackTarget, GSYMediaPlayerListener {
         if (state.value.prepared) manager.seekTo(target) else seekOnStart = target
         mutableState.update { it.copy(position = target, ended = false, seekRevision = it.seekRevision + 1) }
     }
+
+    /**
+     * 在播放画面显示已下载字幕，不重建视频 MediaSource。
+     */
+    fun mountSubtitle(cues: List<SubtitleCue>, name: String): String? {
+        subtitleCues = cues.sortedBy { it.startMs }
+        VideoPlay.subtitleUrl = name
+        VideoPlay.subtitleLang = "zh"
+        subtitleTicker?.cancel()
+        mutableState.update { it.copy(subtitleRevision = it.subtitleRevision + 1, subtitleText = null) }
+        subtitleTicker = scope.launch {
+            while (isActive) {
+                val position = state.value.position
+                val index = subtitleCues.binarySearchBy(position) { it.startMs }
+                val cueIndex = if (index >= 0) index else (-index - 2)
+                val text = subtitleCues.getOrNull(cueIndex)
+                    ?.takeIf { position >= it.startMs && position < it.endMs }?.text
+                mutableState.update { it.copy(subtitleText = text) }
+                delay(100)
+            }
+        }
+        return null
+    }
+
+    fun unmountSubtitle(): String? {
+        subtitleTicker?.cancel()
+        subtitleTicker = null
+        subtitleCues = emptyList()
+        VideoPlay.subtitleUrl = null
+        VideoPlay.subtitleLang = null
+        mutableState.update { it.copy(subtitleRevision = it.subtitleRevision + 1, subtitleText = null) }
+        return null
+    }
+
     fun speed(value: Float, temporary: Boolean = false) {
         if (!temporary) selectedSpeed = value
         manager.setSpeed(value, true)

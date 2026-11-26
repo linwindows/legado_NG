@@ -40,6 +40,7 @@ import io.legado.app.data.entities.BookChapter
 import io.legado.app.data.entities.BookSource
 import io.legado.app.help.gsyVideo.VideoPlaybackBridge
 import io.legado.app.help.gsyVideo.VideoPlaybackState
+import io.legado.app.help.subtitle.SubtitleSearchHelp
 import io.legado.app.model.VideoPlay
 import io.legado.app.ui.design.components.compose.*
 import io.legado.app.ui.design.components.NgDialogVariant
@@ -160,6 +161,7 @@ fun VideoPlayerScreen(
                                         if (hasCatalog) VideoAction(R.drawable.ic_chapter_list, "选集", Color.White) { openEpisodes() }
                                         VideoAction(R.drawable.ic_read_aloud_speed, if (state.speed == 1f) "倍速" else "${state.speed}×", Color.White,
                                             enabled = state.prepared) { panel = "speed" }
+                                        VideoAction(R.drawable.ic_translate, "字幕", Color.White) { panel = "subtitle" }
                                         if (VideoPlay.danmakuFile != null || !VideoPlay.danmakuStr.isNullOrBlank()) VideoAction(R.drawable.ic_video_danmaku,
                                             if (danmaku) "关弹幕" else "开弹幕", Color.White) { danmaku = !danmaku; VideoPlay.danmakuShow = danmaku }
                                         VideoAction(R.drawable.ic_float_window, "小窗", Color.White) { onAction(R.id.menu_float_window) }
@@ -172,6 +174,7 @@ fun VideoPlayerScreen(
                                     if (hasCatalog) VideoTextAction("选集") { openEpisodes() }
                                     if (episodes.size > 1) VideoIcon(R.drawable.ic_skip_next, "下一集", { VideoPlaybackBridge.next(1) })
                                     VideoTextAction(if (state.speed == 1f) "倍速" else "${state.speed}×", enabled = state.prepared) { panel = "speed" }
+                                    VideoTextAction("字幕") { panel = "subtitle" }
                                     if (VideoPlay.danmakuFile != null || !VideoPlay.danmakuStr.isNullOrBlank()) {
                                         VideoTextAction(if (danmaku) "关弹幕" else "开弹幕") { danmaku = !danmaku; VideoPlay.danmakuShow = danmaku }
                                     }
@@ -214,6 +217,7 @@ fun VideoPlayerScreen(
                         if (VideoPlay.rssStar != null) "已收藏" else "收藏", ink) { onAction(R.id.menu_rss_star) }
                     VideoAction(R.drawable.ic_read_aloud_speed, if (state.speed == 1f) "倍速" else "${state.speed}×", ink,
                         enabled = state.prepared) { panel = "speed" }
+                    VideoAction(R.drawable.ic_translate, "字幕", ink) { panel = "subtitle" }
                     VideoAction(R.drawable.ic_video_portrait, "竖屏", ink) { onMode(VideoPresentation.IMMERSIVE) }
                     if (VideoPlay.danmakuFile != null || !VideoPlay.danmakuStr.isNullOrBlank()) {
                         VideoAction(R.drawable.ic_video_danmaku, if (danmaku) "关弹幕" else "开弹幕", ink) { danmaku = !danmaku; VideoPlay.danmakuShow = danmaku }
@@ -259,6 +263,13 @@ fun VideoPlayerScreen(
         "speed" -> VideoSpeedSheet(state.speed,
             onSelect = { speed -> VideoPlaybackBridge.speed(speed); panel = "" },
             onDismiss = { panel = "" })
+        "subtitle" -> VideoSubtitleSheet(
+            initialCode = SubtitleSearchHelp.extractCode(title.orEmpty()),
+            onMount = { cues, name -> VideoPlaybackBridge.mountSubtitle(cues, name) },
+            onUnmount = { VideoPlaybackBridge.unmountSubtitle() },
+            onDone = { msg -> panel = ""; hint = msg },
+            onDismiss = { panel = "" },
+        )
         "episodes" -> VideoEpisodeSheet(catalog, panelVolume,
             VideoPlay.durVolumeIndex, VideoPlay.chapterInVolumeIndex, state.duration, onEpisode, { panel = "" })
         "settings" -> VideoSettings { panel = "" }
